@@ -8,7 +8,7 @@ country_info = location_dir <> "/info.json"
 :ssl.start()
 File.mkdir_p!(location_dir)
 
-countries =
+country_data =
   if File.exists?(country_base) do
     Jason.decode!(File.read!(country_base))
   else
@@ -33,6 +33,30 @@ country_info =
     File.write!(country_info, content)
     Jason.decode!(content)
   end
+
+countries =
+  Enum.map(
+    country_data,
+    fn data ->
+      alpha2 = data["alpha-2"]
+      info = country_info[String.upcase(alpha2)] || %{}
+
+      %{
+        __struct__: Location.Country,
+        name: data["name"],
+        name_native: info["native"] || data["name"],
+        languages: info["languages"] || [],
+        code: String.to_integer(data["country-code"]),
+        alpha2: data["alpha-2"],
+        alpha3: data["alpha-3"],
+        regions:
+          ["", "sub-", "intermediate-"]
+          |> Enum.map(&data["#{&1}region-code"])
+          |> Enum.reject(&(&1 == ""))
+          |> Enum.map(&String.to_integer/1)
+      }
+    end
+  )
 
 defmodule Location.Country do
   @moduledoc ~S"""
@@ -68,43 +92,93 @@ defmodule Location.Country do
   @doc ~S"""
   Get the countries regions.
   """
-  @spec regions(t) :: [Region.t()]
+  @spec regions(t | String.t() | nil) :: [Region.t()]
   def regions(%__MODULE__{regions: regions}), do: Enum.map(regions, &Region.find/1)
+  def regions(id), do: if(c = find(id), do: regions(c), else: [])
 
   @doc ~S"""
   List all known countries.
   """
   @spec list :: [t]
-  def list,
-    do:
-      unquote(
-        countries
-        |> Enum.map(fn data ->
-          alpha2 = data["alpha-2"]
-          info = country_info[String.upcase(alpha2)] || %{}
+  def list, do: unquote(Macro.escape(countries))
 
-          %{
-            __struct__: Location.Country,
-            name: data["name"],
-            name_native: info["native"] || data["name"],
-            languages: info["languages"] || [],
-            code: String.to_integer(data["country-code"]),
-            alpha2: data["alpha-2"],
-            alpha3: data["alpha-3"],
-            regions:
-              ["", "sub-", "intermediate-"]
-              |> Enum.map(&data["#{&1}region-code"])
-              |> Enum.reject(&(&1 == ""))
-              |> Enum.map(&String.to_integer/1)
-          }
-        end)
-        |> Macro.escape()
-      )
+  @two_letter_countries ["中国", "香港", "भारत", "日本", "북한", "澳門", "नपल", "قطر", "臺灣"]
+
+  @doc ~S"""
+  Find a region based on UN M.49 number or name.
+  """
+  @spec find(String.t() | pos_integer) :: t | nil
+  def find(code) when is_integer(code), do: lookup_code(code)
+
+  def find(name_or_alpha_code) when is_binary(name_or_alpha_code) do
+    length = String.length(name_or_alpha_code)
+
+    cond do
+      length > 3 or name_or_alpha_code in @two_letter_countries ->
+        name = String.downcase(name_or_alpha_code)
+        lookup_name(name) || lookup_native_name(name)
+
+      length == 3 ->
+        lookup_alpha3(String.upcase(name_or_alpha_code))
+
+      length == 2 ->
+        lookup_alpha2(String.upcase(name_or_alpha_code))
+
+      :miss ->
+        nil
+    end
+  end
+
+  @doc ~S"""
+  Find a region based on a given field.
+  """
+  @spec find_by(String.t() | pos_integer, :name | :name_native | :code | :alpha2 | :alpha3) ::
+          t | nil
+  def find_by(name, :name), do: lookup_name(String.downcase(name))
+  def find_by(name, :name_native), do: lookup_native_name(String.downcase(name))
+  def find_by(code, :code), do: lookup_code(code)
+  def find_by(alpha2, :alpha2), do: lookup_alpha2(String.upcase(alpha2))
+  def find_by(alpha3, :alpha3), do: lookup_alpha3(String.upcase(alpha3))
+
+  @spec lookup_name(String.t()) :: t | nil
+  Enum.each(countries, fn c ->
+    defp lookup_name(unquote(String.downcase(c.name))), do: unquote(Macro.escape(c))
+  end)
+
+  defp lookup_name(_), do: nil
+
+  @spec lookup_native_name(String.t()) :: t | nil
+  Enum.each(countries, fn c ->
+    defp lookup_native_name(unquote(String.downcase(c.name_native))), do: unquote(Macro.escape(c))
+  end)
+
+  defp lookup_native_name(_), do: nil
+
+  @spec lookup_alpha2(String.t()) :: t | nil
+  Enum.each(countries, fn c ->
+    defp lookup_alpha2(unquote(String.upcase(c.alpha2))), do: unquote(Macro.escape(c))
+  end)
+
+  defp lookup_alpha2(_), do: nil
+
+  @spec lookup_alpha3(String.t()) :: t | nil
+  Enum.each(countries, fn c ->
+    defp lookup_alpha3(unquote(String.upcase(c.alpha3))), do: unquote(Macro.escape(c))
+  end)
+
+  defp lookup_alpha3(_), do: nil
+
+  @spec lookup_code(pos_integer) :: t | nil
+  Enum.each(countries, fn c ->
+    defp lookup_code(unquote(c.code)), do: unquote(Macro.escape(c))
+  end)
+
+  defp lookup_code(_), do: nil
 end
 
 regions =
   Enum.reduce(
-    countries,
+    country_data,
     [],
     fn
       data, acc ->
