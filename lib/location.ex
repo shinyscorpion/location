@@ -53,7 +53,14 @@ countries =
           ["", "sub-", "intermediate-"]
           |> Enum.map(&data["#{&1}region-code"])
           |> Enum.reject(&(&1 == ""))
-          |> Enum.map(&String.to_integer/1)
+          |> Enum.map(&String.to_integer/1),
+        flag:
+          alpha2
+          |> String.codepoints()
+          |> Enum.reduce("", fn a, b ->
+            <<a::utf8>> = a
+            b <> <<a + 127_397::utf8>>
+          end)
       }
     end
   )
@@ -76,7 +83,8 @@ defmodule Location.Country do
           code: pos_integer,
           alpha2: String.t(),
           alpha3: String.t(),
-          regions: [pos_integer]
+          regions: [pos_integer],
+          flag: String.t()
         }
 
   defstruct [
@@ -86,7 +94,8 @@ defmodule Location.Country do
     :code,
     :alpha2,
     :alpha3,
-    :regions
+    :regions,
+    :flag
   ]
 
   @doc ~S"""
