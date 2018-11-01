@@ -190,18 +190,18 @@ regions =
     country_data,
     [],
     fn
-      data, acc ->
+      data, accumulator ->
         ["", "sub-", "intermediate-"]
         |> Enum.map(&{data["#{&1}region"], data["#{&1}region-code"]})
         |> Enum.reduce({[], nil}, fn
-          {nil, _}, a -> a
-          {"", _}, a -> a
-          {r, c}, {l, p} -> {[{r, String.to_integer(c), p} | l], String.to_integer(c)}
+          {nil, _}, acc -> acc
+          {"", _}, acc -> acc
+          {r, c}, {a, p} -> {[{r, String.to_integer(c), p} | a], String.to_integer(c)}
         end)
         |> elem(0)
-        |> Enum.reduce(acc, fn {region, code, parent}, a ->
-          if Enum.any?(acc, &(&1.code == code)) do
-            a
+        |> Enum.reduce(accumulator, fn {region, code, parent}, acc ->
+          if Enum.any?(accumulator, &(&1.code == code)) do
+            acc
           else
             [
               %{
@@ -210,7 +210,7 @@ regions =
                 code: code,
                 parent: parent
               }
-              | a
+              | acc
             ]
           end
         end)
@@ -272,6 +272,7 @@ defmodule Location.Region do
   @doc ~S"""
   List all known regions.
   """
+  @spec list :: [t]
   def list, do: unquote(Macro.escape(regions))
 
   @doc ~S"""
