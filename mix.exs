@@ -35,7 +35,7 @@ defmodule Location.MixProject do
 
   def package do
     [
-      name: :data_daemon,
+      name: :location,
       maintainers: ["Ian Luites"],
       licenses: ["MIT"],
       files: [
@@ -63,7 +63,8 @@ defmodule Location.MixProject do
   defp deps do
     [
       {:jason, "~> 1.1"},
-      {:analyze, "~> 0.1.2-rc.3", optional: true, runtime: false, only: [:dev, :test]}
+      {:analyze, "~> 0.1.4", optional: true, runtime: false, only: [:dev, :test]},
+      {:dialyxir, "~> 1.0.0-rc.6", optional: true, runtime: false, only: :dev}
     ]
   end
 end
