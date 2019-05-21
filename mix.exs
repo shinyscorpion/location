@@ -7,6 +7,7 @@ defmodule Location.MixProject do
     [
       app: :location,
       version: @version,
+      description: "Location and language database.",
       elixir: "~> 1.7",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
